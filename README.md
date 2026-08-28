@@ -75,6 +75,12 @@ The CMake script auto-detects Qt6 vs Qt5 and links against
 `Qt::Widgets` and `Qt::Charts` only — there are no other external
 dependencies.
 
+## Contributing
+
+Bug reports and feature requests are welcome via GitHub Issues (see the
+issue templates). See [CONTRIBUTING.md](CONTRIBUTING.md) for build/test
+expectations before opening a pull request.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
