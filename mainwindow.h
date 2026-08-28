@@ -101,7 +101,5 @@ private:
                                             QVector<double>& xCommon,
                                             QStringList& outHeaders, QVector<QVector<double>>& outCols);
 
-    void sortAndAverage(QVector<double>& x, QVector<double>& y);
-    double interpolate(double x, const QVector<double>& xData, const QVector<double>& yData);
 };
 #endif // MAINWINDOW_H

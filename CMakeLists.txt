@@ -9,8 +9,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Test)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Test)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -20,6 +20,8 @@ set(PROJECT_SOURCES
         plotwindow.cpp
         plotwindow.h
         plotwindow.ui
+        transportmath.h
+        transportmath.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -79,3 +81,21 @@ install(TARGETS Transnalysis
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Transnalysis)
 endif()
+
+# --- Unit tests -------------------------------------------------------
+# TransportMath has no QWidget/model dependency, so it can be exercised
+# directly with Qt Test without constructing the GUI.
+enable_testing()
+
+add_executable(transnalysis_tests
+    transportmath.h
+    transportmath.cpp
+    tests/test_transportmath.cpp
+)
+
+target_link_libraries(transnalysis_tests PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Test
+)
+
+add_test(NAME TransportMathTests COMMAND transnalysis_tests)

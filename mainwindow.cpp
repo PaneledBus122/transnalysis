@@ -3,6 +3,7 @@
 #include "numerictablemodel.h"
 #include "saveexportdialog.h"
 #include "plotwindow.h"
+#include "transportmath.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -692,57 +693,7 @@ void MainWindow::on_btnFSSym_clicked()
     sendLog("------------------------------------------------------------");
 }
 
-
-void MainWindow::sortAndAverage(QVector<double>& x, QVector<double>& y)
-{
-    if (x.isEmpty() || x.size() != y.size()) return;
-
-    // 1. (X, Y) 쌍으로 묶어서 X 기준 정렬
-    QVector<std::pair<double, double>> pairs;
-    for (int i = 0; i < x.size(); ++i) pairs.push_back({x[i], y[i]});
-    std::sort(pairs.begin(), pairs.end());
-
-    QVector<double> newX, newY;
-    int i = 0;
-    while (i < pairs.size()) {
-        double currentX = pairs[i].first;
-        double sumY = 0;
-        int count = 0;
-
-        // 같은 X값을 가진 구간을 찾아 합산
-        while (i < pairs.size() && pairs[i].first == currentX) {
-            sumY += pairs[i].second;
-            count++;
-            i++;
-        }
-
-        newX.push_back(currentX);
-        newY.push_back(sumY / count); // 산술 평균
-    }
-
-    x = newX;
-    y = newY;
-}
-
-static bool interpLinear(const QVector<double>& x, const QVector<double>& y, double xq, double& yq)
-{
-    if (x.size() < 2) return false;
-    if (xq < x.front() || xq > x.back()) return false;
-
-    auto it = std::lower_bound(x.begin(), x.end(), xq);
-    int j = int(it - x.begin());
-
-    if (j == 0) { yq = y.front(); return true; }
-    if (j >= x.size()) { yq = y.back(); return true; }
-
-    const double x1 = x[j - 1], x2 = x[j];
-    const double y1 = y[j - 1], y2 = y[j];
-    if (x2 == x1) return false;
-
-    const double t = (xq - x1) / (x2 - x1);
-    yq = y1 + t * (y2 - y1);
-    return true;
-}
+// sortAndAverage(), interpLinear(): see transportmath.cpp (TransportMath namespace).
 
 bool MainWindow::buildFSSymColumns(int xCol,
                                    const QVector<int>& yCols,
@@ -794,7 +745,7 @@ bool MainWindow::buildFSSymColumns(int xCol,
     outHeaders << (tag + "FSsym Field");
     outCols << xNew;
 
-    // 각 Y 처리
+    // 각 Y 처리 -- 순수 대칭화 연산은 TransportMath::symmetrizeFieldSweep로 위임
     for (int k = 0; k < yCols.size(); ++k) {
         const int yCol = yCols[k];
 
@@ -811,31 +762,19 @@ bool MainWindow::buildFSSymColumns(int xCol,
             vy.push_back(v);
         }
 
-        sortAndAverage(bx, vy);
-        if (bx.size() < 2) continue;
+        const QVector<TransportMath::FieldSweepPoint> points =
+            TransportMath::symmetrizeFieldSweep(bx, vy, xNew);
+        if (points.isEmpty()) continue;
 
         QVector<double> orig, sym, asym;
-        orig.reserve(xNew.size());
-        sym.reserve(xNew.size());
-        asym.reserve(xNew.size());
-
-        const int n = xNew.size();
-        for (int i = 0; i < n; ++i) {
-            const double b = xNew[i];
-
-            double vp = 0.0, vn = 0.0;
-            if (!interpLinear(bx, vy,  b, vp) || !interpLinear(bx, vy, -b, vn)) {
-                orig.push_back(qQNaN());
-                sym.push_back(qQNaN());
-                asym.push_back(qQNaN());
-                continue;
-            }
-
-            orig.push_back(vp);
-            sym.push_back(0.5 * (vp + vn));
-            asym.push_back(0.5 * (vp - vn));
+        orig.reserve(points.size());
+        sym.reserve(points.size());
+        asym.reserve(points.size());
+        for (const auto& pt : points) {
+            orig.push_back(pt.orig);
+            sym.push_back(pt.sym);
+            asym.push_back(pt.asym);
         }
-
 
         const QString base = (k < yNames.size() ? yNames[k] : QString("Y%1").arg(k));
         outHeaders << (tag + "FSsym " + base + " orig");
@@ -961,7 +900,7 @@ bool MainWindow::buildTSSymColumns(int xCol,
         }
 
         // 수집된 데이터를 X별로 정렬하고 평균 내기
-        sortAndAverage(tempX, tempY);
+        TransportMath::sortAndAverage(tempX, tempY);
         outX = tempX;
         outY = tempY;
     };
@@ -1009,7 +948,7 @@ bool MainWindow::buildTSSymColumns(int xCol,
         for (double xVal : xNew) {
             double yp = 0.0, yn = 0.0;
             // 평균화된 (tx, y) 데이터를 기반으로 선형 보간
-            if (!interpLinear(txP, yP, xVal, yp) || !interpLinear(txN, yN, xVal, yn)) {
+            if (!TransportMath::interpLinear(txP, yP, xVal, yp) || !TransportMath::interpLinear(txN, yN, xVal, yn)) {
                 sym.push_back(qQNaN());
                 asym.push_back(qQNaN());
                 continue;
@@ -2245,7 +2184,7 @@ bool MainWindow::buildMultiSweepColumns(int xCol, int fieldCol, const QVector<in
             QVector<double> interpolatedY;
             interpolatedY.reserve(xCommon.size());
             for (double x : xCommon) {
-                interpolatedY.push_back(interpolate(x, segX, segY));
+                interpolatedY.push_back(TransportMath::interpolate(x, segX, segY));
             }
             outCols.push_back(interpolatedY);
         }
@@ -2253,22 +2192,8 @@ bool MainWindow::buildMultiSweepColumns(int xCol, int fieldCol, const QVector<in
     return true;
 }
 
-double MainWindow::interpolate(double x, const QVector<double>& xData, const QVector<double>& yData) {
-    if (xData.size() < 2) return (yData.isEmpty() ? 0.0 : yData[0]);
+// interpolate(): see transportmath.cpp (TransportMath namespace).
 
-    auto it = std::lower_bound(xData.begin(), xData.end(), x);
-    if (it == xData.begin()) return yData.front();
-    if (it == xData.end()) return yData.back();
-
-    int idx1 = std::distance(xData.begin(), it) - 1;
-    int idx2 = idx1 + 1;
-
-    double x1 = xData[idx1], x2 = xData[idx2];
-    double y1 = yData[idx1], y2 = yData[idx2];
-
-    if (std::abs(x1 - x2) < 1e-12) return y1;
-    return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
-}
 MainWindow* MainWindow::processExtractionResult(const QStringList& headers, const QVector<QVector<double>>& cols)
 {
     if (headers.isEmpty() || cols.isEmpty()) return nullptr;
@@ -2504,17 +2429,17 @@ void MainWindow::on_btnTSwpHallCalculate_clicked()
         // tx와 각각의 Y를 쌍으로 묶어 평균화하여 데이터 개수를 일치시킵니다.
         if (!rawT.isEmpty()) {
             tx = rawT; vl = rawVl; vt = rawVt;
-            sortAndAverage(tx, vl); // tx도 여기서 정렬/중복제거됨
+            TransportMath::sortAndAverage(tx, vl); // tx도 여기서 정렬/중복제거됨
 
             // 나머지 물리량들도 동일한 tx 기준으로 평균화
             QVector<double> dummyT = rawT;
-            sortAndAverage(dummyT, vt);
+            TransportMath::sortAndAverage(dummyT, vt);
             vt = vt; // tx와 개수 일치됨
 
             if (!useFixedI) {
                 QVector<double> dummyT2 = rawT;
                 vi = rawVi;
-                sortAndAverage(dummyT2, vi);
+                TransportMath::sortAndAverage(dummyT2, vi);
             }
         }
     };
@@ -2550,10 +2475,10 @@ void MainWindow::on_btnTSwpHallCalculate_clicked()
     const double eCharge = 1.602176634e-19;
 
     for (double t_val : T_common) {
-        double vl_z = interpolate(t_val, T_z, Vl_z);
-        double vt_p = interpolate(t_val, T_p, Vt_p);
-        double vt_n = interpolate(t_val, T_n, Vt_n);
-        double current = useFixedI ? I_input : interpolate(t_val, T_z, I_z);
+        double vl_z = TransportMath::interpolate(t_val, T_z, Vl_z);
+        double vt_p = TransportMath::interpolate(t_val, T_p, Vt_p);
+        double vt_n = TransportMath::interpolate(t_val, T_n, Vt_n);
+        double current = useFixedI ? I_input : TransportMath::interpolate(t_val, T_z, I_z);
 
         // Anti-symmetrization
         double v_hall = 0.5 * (vt_p - vt_n);
