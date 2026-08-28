@@ -93,6 +93,8 @@ add_executable(transnalysis_tests
     tests/test_transportmath.cpp
 )
 
+target_include_directories(transnalysis_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(transnalysis_tests PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Test
