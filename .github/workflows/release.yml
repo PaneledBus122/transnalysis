@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          target: 'desktop'
+          modules: 'qtcharts'
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Collect Qt runtime DLLs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path deploy | Out-Null
+          Copy-Item build\Release\Transnalysis.exe deploy\
+          windeployqt --release --no-translations deploy\Transnalysis.exe
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          Compress-Archive -Path deploy\* -DestinationPath "Transnalysis-windows-$version.zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: transnalysis-windows
+          path: Transnalysis-windows-*.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Transnalysis-windows-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
