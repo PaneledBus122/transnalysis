@@ -1,5 +1,7 @@
 # Transnalysis
 
+[![Build](https://github.com/PaneledBus122/transnalysis/actions/workflows/build.yml/badge.svg)](https://github.com/PaneledBus122/transnalysis/actions/workflows/build.yml)
+
 A Qt6/C++ desktop application for interactive analysis of electrical transport
 data — resistivity, Hall effect (mobility, carrier density), and
 field-/temperature-sweep symmetrization — built for condensed matter transport
