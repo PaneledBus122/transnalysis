@@ -5,6 +5,11 @@ data — resistivity, Hall effect (mobility, carrier density), and
 field-/temperature-sweep symmetrization — built for condensed matter transport
 measurements.
 
+It targets data of the kind produced by systems such as a Quantum Design
+PPMS or MPMS. In the author's setup, custom electronics are interfaced with
+a PPMS to acquire the raw voltage/field/temperature signals that
+Transnalysis then loads and processes.
+
 ![Main window](docs/screenshots/main-window.png)
 
 ## What it does
