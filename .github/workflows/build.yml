@@ -14,16 +14,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt6 and build tools
+      # Match the Qt version used in local development (Desktop_Qt_6_9_3),
+      # so uic/moc understand the same .ui feature set as the author's Qt Creator.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          target: 'desktop'
+          modules: 'qtcharts'
+
+      - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            qt6-base-dev \
-            qt6-base-dev-tools \
-            qt6-charts-dev \
-            cmake \
-            ninja-build \
-            build-essential
+          sudo apt-get install -y cmake ninja-build build-essential
 
       - name: Configure
         run: cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
