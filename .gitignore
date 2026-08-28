@@ -1,0 +1,29 @@
+# Build outputs
+/build/
+build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.a
+*.lib
+
+# Qt Creator IDE files (machine-specific, contain local paths)
+.qtcreator/
+CMakeLists.txt.user
+*.autosave
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Archives created while transferring the project
+*.zip
